@@ -1,0 +1,8 @@
+(* Public test case 1 *)
+
+let x := 5 in
+let proc f(n) =
+	n*n; n in
+f(f(x))
+
+(* Output : prints out "3\n" *)
