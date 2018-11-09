@@ -1,0 +1,48 @@
+let proc numch1 (n) =
+    1 in
+let proc numch10 (n) =
+    if (n < 10) then numch1(n)
+    else numch1(n) + numch10(n-10) in
+let proc numch100 (n) = 
+    if (n < 10) then numch1(n)
+    else if (n < 100) then numch1(n) + numch10(n-10)
+    else numch1(n) + numch10(n - 10) + numch100(n - 100) in
+let proc numch500 (n) =
+    if (n < 10) then numch1(n)
+    else if (n < 100) then numch1(n) + numch10(n-10)
+    else if (n < 500) then numch1(n) + numch10(n-10) + numch100(n-100)
+    else numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n-500)in
+let proc numch1000 (n) =
+    if (n < 10) then numch1(n)
+    else if (n < 100) then numch1(n) + numch10(n-10)
+    else if (n < 500) then numch1(n) + numch10(n-10) + numch100(n-100)
+    else if (n < 1000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n-500)
+    else numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n-500) + numch1000(n-1000) in
+let proc numch5000 (n) =
+    if (n < 10) then numch1(n)
+    else if (n < 100) then numch1(n) + numch10(n-10)
+    else if (n < 500) then numch1(n) + numch10(n-10) + numch100(n-100)
+    else if (n < 1000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500)
+    else if (n < 5000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500) + numch1000(n-1000)
+    else numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n-500) + numch1000(n-1000) + numch5000(n - 5000) in
+let proc numch10000 (n) =
+    if (n < 10) then numch1(n)
+    else if (n < 100) then numch1(n) + numch10(n-10)
+    else if (n < 500) then numch1(n) + numch10(n-10) + numch100(n-100)
+    else if (n < 1000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500)
+    else if (n < 5000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500) + numch1000(n-1000)
+    else if (n < 10000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500) + numch1000(n-1000) + numch5000(n-5000)
+    else numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500) + numch1000(n-1000) + numch5000(n-5000) + numch10000(n-10000) in
+let proc numch (n) =
+    if (n < 10) then numch1(n)
+    else if (n < 100) then numch1(n) + numch10(n-10)
+    else if (n < 500) then numch1(n) + numch10(n-10) + numch100(n-100)
+    else if (n < 1000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500)
+    else if (n < 5000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500) + numch1000(n-1000)
+    else if (n < 10000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500) + numch1000(n-1000) + numch5000(n-5000)
+    else if (n < 50000) then numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500) + numch1000(n-1000) + numch5000(n-5000) + numch10000(n-10000) 
+    else numch1(n) + numch10(n - 10) + numch100(n - 100) + numch500(n - 500) + numch1000(n-1000) + numch5000(n-5000) + numch10000(n-10000) + numch(n-50000) in
+
+let input :=0 in
+read input;
+write(numch(input))

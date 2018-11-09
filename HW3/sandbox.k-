@@ -1,0 +1,6 @@
+let proc f(x, y) = 
+	{i:= x, j:= y}
+	in
+
+write(f(1,3).i);
+write(f(1,4).j)

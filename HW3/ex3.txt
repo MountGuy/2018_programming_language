@@ -1,0 +1,69 @@
+let proc node(t, n) =
+    {element := t, next := n}
+    in
+let proc queue(hd, tl) =
+    {head := hd, tail := tl}
+    in
+let proc queueIsEmpty(que) =
+    que.head = unit
+    in
+let proc enqueue(que, t) =
+    let n := node(t, unit) in
+    if(queueIsEmpty(que))
+    then (que.head := n; que.tail := n)
+    else (que.tail.next := n; que.tail := n)
+    in
+let proc dequeue(que) =
+    let n := que.head in
+    que.head := que.head.next;
+    n.element
+    in
+let proc leaf(x) =
+    {key := x, left := unit, right := unit}
+    in
+let proc makeLtree(x, t) =
+    {key := x, left := t, right := unit}
+    in
+let proc makeRtree(x, t) =
+    {key := x, left := unit, right := t}
+    in
+let proc makeTree(x, t1, t2) = 
+    {key := x, left := t1, right := t2}
+    in
+let proc isEmpty(t) =
+    t = unit
+    in
+let proc lTree(t) =
+    t.left 
+    in
+let proc rTree(t) =
+    t.right
+    in
+let proc nodeVal(t) =
+    t.key
+    in
+let proc dft(t) =
+    if(isEmpty(t)) 
+    then unit 
+    else (
+        write(nodeVal(t));
+        if(isEmpty(lTree(t))) then unit else dft(lTree(t));
+        if(isEmpty(rTree(t))) then unit else dft(rTree(t))
+    )
+    in
+let proc bft(t) =
+    if(isEmpty(t))
+    then unit
+    else (
+        let que := queue(unit, unit) in
+        enqueue<que, t>;
+        while(not queueIsEmpty(que)) do (
+            let t1 := dequeue<que> in
+            let lt := t1.left in
+            let rt := t1.right in
+            write(nodeVal(t1));
+            if(isEmpty(t1.left)) then unit else enqueue<que, lt>;
+            if(isEmpty(t1.right)) then unit else enqueue<que, rt>
+        )
+    )
+    in 2018
