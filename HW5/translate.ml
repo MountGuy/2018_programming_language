@@ -27,7 +27,17 @@ module Translator = struct
     | K.WHILE (e1, e2) ->
       trans (K.LETF("#whileLoop", "#annonymous", K.IF(e1, K.SEQ(e2, CALLV("#whileLoop", K.NUM(1))), K.UNIT), K.CALLV("#whileLoop", K.NUM(1))))
     | K.FOR (x, e1, e2 ,e3) ->
-      trans (K.SEQ(K.ASSIGN(x, e1), K.LETV("#end",K.ADD(e2,K.NUM(1)),K.LETF("#forLoop","#index",K.IF(K.LESS(K.VAR(x),K.VAR("#end")),K.SEQ(K.SEQ(e3,K.ASSIGN(x,K.ADD(K.VAR(x),K.NUM(1)))),K.CALLV("#forLoop",K.NUM(1))),K.UNIT),K.CALLV("#forLoop",K.NUM(1))))))
+      trans (
+        K.LETV("#start", e1, 
+            K.LETV("#end", e2,
+                K.LETF("#forLoop", "#i",
+                    K.IF(
+                        K.LESS(K.VAR("#end"), K.VAR("#i")),
+                        K.UNIT,K.SEQ(K.ASSIGN(x,K.VAR("#i")),
+                        K.SEQ(e3,K.CALLV("#forLoop",K.ADD(K.NUM(1),K.VAR("#i")))))
+                        ),
+                    K.CALLV("#forLoop",K.VAR("#start"))
+                    ))))
     | K.LETV (x, e1, e2) ->
       trans e1 @ [Sm5.MALLOC; Sm5.BIND x; Sm5.PUSH (Sm5.Id x); Sm5.STORE] @
       trans e2 @ [Sm5.UNBIND; Sm5.POP]
