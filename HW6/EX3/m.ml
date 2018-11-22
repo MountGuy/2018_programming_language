@@ -133,7 +133,31 @@ struct
     | SUB -> (fun (v1,v2) -> Int (getInt v1 - getInt v2))
     | AND -> (fun (v1,v2) -> Bool (getBool v1 && getBool v2))
     | OR ->  (fun (v1,v2) -> Bool (getBool v1 || getBool v2))
-    | EQ -> (fun (v1,v2) -> Bool (getBool v1 == getBool v2))(* TODO : implement this *)
+    | EQ -> (fun (v1,v2) -> (*Bool (getBool v1 == getBool v2))(* TODO : implement this *)*)
+      (match v1 with
+      | Int _ -> 
+        (match v2 with
+        | Int _ -> Bool(getInt v1 == getInt v2) 
+        | _ -> raise(TypeError"type error")
+        )
+      | Bool _ ->
+        (match v2 with
+        | Bool _ -> Bool(getBool v1 == getBool v2) 
+        | _ -> raise(TypeError"type error")
+        ) 
+      | String _ ->
+        (match v2 with
+        | String _ -> Bool(String.equal (getString v1) (getString v2))
+        | _ -> raise(TypeError"type error")
+        ) 
+      | Loc _ ->
+        (match v2 with
+        | Loc _ -> Bool(getLoc v1 == getLoc v2)
+        | _ -> raise(TypeError"type error")
+        )       
+      | _ -> raise(TypeError"type error")
+      )
+    )
       
 
   let rec printValue =
@@ -183,14 +207,13 @@ struct
     | SND e -> 
       let (v, m') = eval env mem e in
       (snd (getPair v), m')
-    | LET (d, e) ->
+    | LET (d, e2) ->
       (match d with
       | REC (f, x, e1) ->
-        let (c, m') = eval env mem e1 in
-        eval (env @+ (f, c)) m' e
+        eval (env @+ (f, Closure(RecFun(f, x, e1),env))) mem e2
       | VAL (x, e1) -> 
         let (v1, m') = eval env mem e1 in
-        eval (env @+ (x, v1)) m' e
+        eval (env @+ (x, v1)) m' e2
       )
     | ASSIGN (e1, e2) ->
       let (l, m') = eval env mem e1 in
@@ -207,8 +230,8 @@ struct
     | MALLOC e ->
       let (v, m') = eval env mem e in
       let (l, m'') = malloc m' in
-      let (l', mem') = store (l, snd m'') (l, v) in
-      (Loc l, (l', mem'))
+      let (l', mem') = store m'' (fst m'', v) in
+      (Loc l', (l', mem'))
 
   let emptyEnv = (fun x -> raise (RunError ("unbound id: " ^ x)))
 
