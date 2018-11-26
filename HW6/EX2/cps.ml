@@ -39,11 +39,22 @@ let rec cps' exp =
   (* Constant expressions *)
   | Num n -> Fn (k, (* Fill in here *)App(Var k, Num n) )
   | Var x -> Fn (k, (* Fill in here *)App(Var k, Var x) )
-  | Fn (x, e) -> Fn (k, (* Fill in here *)App() )
-  | Rec (f, x, e) -> Fn (k, (* Fill in here *) )
+  | Fn (x, e) -> Fn (k, (* Fill in here *)App(Var k, Fn(x, cps' e)) )
+  | Rec (f, x, e) -> Fn (k, (* Fill in here *) App(Var k, Num 0))
   (* Non constant expressions *)
-  | App (e1, e2) -> Fn (k, (* Fill in here *) )
-  | Ifz (e1, e2, e3) -> Fn (k, (* Fill in here *) )
+  | App (e1, e2) -> 
+    (*let v1 = new_name() in
+    let v2 = new_name() in
+    Fn (k, (* Fill in here *) 
+        App(cps' e1,
+            Fn(v1,
+                App(cps' e2, Fn(v2, App(Var k, App(Var v1, Var v2)))))))*)
+    Fn(k, App(Var k, App(e1, e2)))
+  | Ifz (e1, e2, e3) ->(* Fn (k, (* Fill in here *) App(Var k, Num 0))*)
+    let v1 = new_name() in
+    let v2 = new_name() in
+    let v3 = new_name() in
+    Fn(k, App(cps' e1, Fn(v1, App(cps' e2, Fn(v2, App(cps' e3, Fn(v3, App(Var k, Ifz(Var v1, Var v2, Var v3)))))))))
   | Add (e1, e2) ->
     let v1 = new_name () in
     let v2 = new_name () in
@@ -58,9 +69,16 @@ let rec cps' exp =
                 )
             )
         )
-  | Pair (e1, e2) -> Fn (k, (* Fill in here *) )
-  | Fst e ->  Fn (k, (* Fill in here *) )
-  | Snd e ->  Fn (k, (* Fill in here *) )
+  | Pair (e1, e2) -> (*Fn (k,  Fill in here App(Var k, Num 0 ))*)
+    let v1 = new_name() in
+    let v2 = new_name() in
+    Fn(k, App(cps' e1, Fn(v1, App(cps' e2, Fn(v2, App(Var k, Pair(Var v1, Var v2)))))))
+  | Fst e ->  (*Fn (k, (* Fill in here *) App(Var k, Num 0))*)
+    let v1 = new_name() in
+    Fn(k, App(cps' e, Fn(v1, App(Var k, Fst(Var v1)))))
 
+  | Snd e ->  (*Fn (k, (* Fill in here *) App(Var k, Num 0 ))*)
+    let v1 = new_name() in
+    Fn(k, App(cps' e, Fn(v1, App(Var k, Snd(Var v1)))))
 let cps exp = cps' (alpha_conv exp [])
 
