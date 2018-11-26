@@ -35,7 +35,7 @@ push (x,
 bind fib;
 push fib;
 push fib;
-push 10;
+push 3;
 malloc;
 call;
 unbind;

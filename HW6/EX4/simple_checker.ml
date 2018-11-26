@@ -26,10 +26,19 @@ type typ =
 
 let rec check' : M.exp -> M.types = fun exp ->
   match exp with
-  | CONST c
-  | VAR x
-  | FN (x, e)
-  | APP (e1, e2)
+  | CONST c ->
+  (
+    match c with
+    | S _ -> TString
+    | N _ -> TInt
+    | B _ -> TBool
+  )
+  | VAR x -> TVAR(x)
+  | FN (x, e) -> TFUN(TVar(x), (check' e) )
+  | APP (e1, e2) ->
+    let function = check' e1 in
+    let v = check' e2 in
+    
   | LET (d, e2)
   | IF (e1, e2, e3)
   | BOP (bop, e1, e2)
