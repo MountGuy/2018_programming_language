@@ -39,28 +39,25 @@ let rec cps' exp =
   (* Constant expressions *)
   | Num n -> Fn (k, (* Fill in here *)App(Var k, Num n) )
   | Var x -> Fn (k, (* Fill in here *)App(Var k, Var x) )
-  | Fn (x, e) -> Fn (k, (* Fill in here *)App(Var k, Fn(x, cps' e)) )
+  | Fn (x, e) -> (*Fn (k, Fill in here App(Var k, Fn(x, App(cps' e, Fn("#v", Var "#v"))) ))*)
+    let v1 = new_name() in
+    let v2 = new_name() in
+    let v3 = new_name() in
+
+    let _ = print_string(v1) in
+    let _ = print_string(x) in
+    
+    Fn(k, App(Var k, App(App(Fn(x, cps' e), Var x), Fn(v1, Fn(v3, Var v1)))))
   | Rec (f, x, e) -> Fn (k, (* Fill in here *) App(Var k, Num 0))
   (* Non constant expressions *)
   | App (e1, e2) -> 
     let v1 = new_name() in
     let v2 = new_name() in
-
-    let _ = M0.print e1 in
-    let _ = print_newline() in
-    
-    let _ = M0.print e2 in
-    let _ = print_newline() in
-    
-    let _ = M0.print (cps' e1) in
-    let _ = print_newline() in
-
-    let _ = M0.print (cps' e2) in
-    let _ = print_newline() in
-       
+      
 
     Fn (k, App(cps' e1,Fn(v1,App(cps' e2, Fn(v2, App(Var k, App(Var v1, Var v2)))))))
     (*Fn(k, App(Var k, App(e1, e2)))*)
+    (*Fn(k, App(Var k, App(cps' e1, cps' e2)))*)
   | Ifz (e1, e2, e3) ->(* Fn (k, (* Fill in here *) App(Var k, Num 0))*)
     let v1 = new_name() in
     let v2 = new_name() in
