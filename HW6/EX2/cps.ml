@@ -46,8 +46,9 @@ let rec cps' exp =
 
     let _ = print_string(v1) in
     let _ = print_string(x) in
+    Fn(k, App(Var k, App(cps' e, Fn(v1, Fn(x, Var v1)))))
     
-    Fn(k, App(Var k, App(App(Fn(x, cps' e), Var x), Fn(v1, Fn(v3, Var v1)))))
+    (*Fn(k, App(Var k, App(App(Fn(x, cps' e), Var x), Fn(v1, Fn(v3, Var v1)))))*)
   | Rec (f, x, e) -> Fn (k, (* Fill in here *) App(Var k, Num 0))
   (* Non constant expressions *)
   | App (e1, e2) -> 
