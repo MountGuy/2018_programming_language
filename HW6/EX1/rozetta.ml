@@ -44,7 +44,7 @@ and trans' : Sm5.command -> Sonata.command = function
  | Sm5.GET ::cmds -> Sonata.GET :: (trans' cmds)
  | Sm5.PUT ::cmds -> Sonata.PUT :: (trans' cmds)
  | Sm5.CALL :: cmds -> 
-     Sonata.PUSH(Sonata.Fn("@", (trans' cmds) @ [Sonata.PUSH(Sonata.Id("#after")); Sonata.LOAD;Sonata.PUSH(Sonata.Val(Sonata.Z(0))); Sonata.MALLOC; Sonata.UNBIND; Sonata.POP; Sonata.CALL]))::[
+     Sonata.PUSH(Sonata.Fn("@", ([Sonata.UNBIND;Sonata.POP]@trans' cmds) @ [Sonata.PUSH(Sonata.Id("#after")); Sonata.LOAD;Sonata.PUSH(Sonata.Val(Sonata.Z(0))); Sonata.MALLOC; Sonata.UNBIND; Sonata.POP; Sonata.CALL]))::[
      Sonata.MALLOC ; 
      Sonata.BIND "#next" ; 
      Sonata.PUSH(Sonata.Id("#next")) ;
