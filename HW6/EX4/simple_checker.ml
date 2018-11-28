@@ -259,7 +259,7 @@ let rec relocateT typ sol =
     if(typeIsConst (get_typ typ sol)) then get_typ typ sol else typ
   | _ -> typ
 
-let rec relocateE equ sol =
+let rec relocateE equ sol psol =
   match equ with
   | EQUAL(t1, t2) -> (*EQUAL(relocateT t1 sol, relocateT t2 sol)*)
     let typ1 = get_typ t1 sol in
@@ -267,25 +267,25 @@ let rec relocateE equ sol =
     (match typ1 with
       | TPair(t11, t12) ->(
         match typ2 with
-        | TPair(t21, t22) -> PAIR(EQUAL(t11, t21),EQUAL(t12, t22))
-        | TVar _ -> EQUAL(relocateT typ1 sol, typ2)
+        | TPair(t21, t22) -> (PAIR(EQUAL(t11, t21),EQUAL(t12, t22)), psol)
+        | TVar _ -> (EQUAL(relocateT typ1 sol, typ2), psol)
         | _ -> raise(M.TypeError "asdf2") 
       )
       | TLoc t ->(
         match typ2 with
-        | TLoc(t') -> EQUAL(t, t')
-        | TVar _ -> EQUAL(relocateT typ1 sol, typ2)
+        | TLoc(t') -> (EQUAL(t, t'), psol)
+        | TVar _ -> (EQUAL(relocateT typ1 sol, typ2), psol)
         | _ -> raise(M.TypeError "asdf3")
       )
       | TFun(t11, t12) ->(
         match typ2 with
-        | TFun(t21, t22) -> PAIR(EQUAL(t11, t21),EQUAL(t12, t22))
-        | TVar _ -> EQUAL(relocateT typ1 sol, typ2)
+        | TFun(t21, t22) -> (PAIR(EQUAL(t11, t21),EQUAL(t12, t22)), psol)
+        | TVar _ -> (EQUAL(relocateT typ1 sol, typ2), psol)
         | _ -> raise(M.TypeError "asdf4")
       )
-      | _ ->EQUAL(relocateT t1 sol, relocateT t2 sol)
+      | _ -> (EQUAL(relocateT t1 sol, relocateT t2 sol), psol)
     )
-  | PAIR(e1, e2) -> PAIR(relocateE e1 sol, relocateE e2 sol)
+  | PAIR(e1, e2) -> (PAIR(fst(relocateE e1 sol psol), fst(relocateE e2 sol psol)), psol)
   
 let rec print_equ equ =
   match equ with
@@ -345,7 +345,8 @@ let check : M.exp -> M.types = fun exp ->
 
   let rec eval equ sol =(
     let sol' = sol @ solve equ sol in
-    let equ' = relocateE equ sol' in
+    let psol = fun l -> TVar("#unbounded") in
+    let (equ',_) = relocateE equ sol' psol in
     let sol'' = refine sol' in
     let _ = print_equ equ' in
     let _ = print_endline("=====") in
