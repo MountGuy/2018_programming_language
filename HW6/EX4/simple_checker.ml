@@ -347,6 +347,8 @@ let check : M.exp -> M.types = fun exp ->
     let sol' = sol @ solve equ sol in
     let equ' = relocateE equ sol' in
     let sol'' = refine sol' in
+    let _ = print_equ equ' in
+    let _ = print_endline("=====") in
     if(List.length sol < List.length sol'' || not(identicalE equ equ')) then eval equ' sol' else sol) in
 
   let answer = eval equ sol in
