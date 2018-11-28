@@ -42,6 +42,7 @@ let rec get_var tvar =
   | TString -> "STRING"
   | TLoc t -> "LOC(" ^ (get_var t)^")"
   | TFun (t1, t2) -> "FUN("^(get_var t1) ^ " " ^ (get_var t2) ^ ")"
+  | TPair (t1, t2) -> "PAIR("^(get_var t1) ^ " " ^ (get_var t2) ^ ")"
 
 let rec get_typ tvar sol =
   match tvar with
@@ -98,7 +99,7 @@ let rec struct_equation gam exp tvar =
       (struct_equation gam e' (TVar(v1))),
       (struct_equation (gam @+ (x, (TVar(v1)))) e tvar))
   )
-  | M.IF (e1, e2, e3) ->    
+  | M.IF (e1, e2, e3) ->
     PAIR(PAIR((struct_equation gam e1 TBool),
               (struct_equation gam e2 tvar)),
               (struct_equation gam e3 tvar))
@@ -136,7 +137,9 @@ let rec struct_equation gam exp tvar =
   | M.WRITE e ->
     struct_equation gam e tvar
   | M.MALLOC e ->
-    struct_equation gam e (TLoc(tvar))
+    let v = new_var() in
+    PAIR(struct_equation gam e (TVar(v)),
+    EQUAL(TLoc(TVar(v)), tvar))  
   | M.ASSIGN (e1, e2) ->
     PAIR(
       (struct_equation gam e1 (TLoc(tvar))),
@@ -180,23 +183,64 @@ let rec typeIsConst typ =
   | TString -> true
   | TVar _ -> false
 
+let rec identicalT t1 t2 =
+  match t1 with
+  | TPair(t11, t12) ->(
+    match t2 with
+    | TPair(t21, t22) -> identicalT t11 t21 && identicalT t12 t22
+    | _ -> false
+  )
+  | TLoc t -> (
+    match t2 with
+    | TLoc(t') -> identicalT t t'
+    | _ -> false
+  )
+  | TFun(t11, t12) ->(
+    match t2 with
+    | TFun(t21, t22) -> identicalT t11 t21 && identicalT t12 t22
+    | _ -> false
+  )
+  | TInt -> (
+    match t2 with
+    | TInt -> true
+    | _ -> false
+  )
+  | TBool -> (
+    match t2 with
+    | TBool -> true
+    | _ -> false
+  )
+  | TString -> (
+    match t2 with
+    | TString -> true
+    | _ -> false
+  )
+  | TVar v1 ->  (
+    match t2 with
+    | TVar v2 -> (v1 == v2)
+    | _ -> false
+  )
+
 let rec solve equ sol =
   match equ with
   | EQUAL(t1, t2) ->
   (
+    if typeIsConst t1 && typeIsConst t2 && not(identicalT t1 t2)
+    then raise(M.TypeError("asdf1"))
+    else
     match get_typ t1 sol with
     | TVar v1 -> (
       let t2Typ = get_typ t2 sol in
-      if typeIsConst t2Typ then (v1, t2Typ)::sol else sol
+      if typeIsConst t2Typ then [(v1, t2Typ)] else []
 
     )
     | _ -> (
       match get_typ t2 sol with
       | TVar v2 -> (
         let t1Typ = get_typ t1 sol in
-        if typeIsConst t1Typ then (v2, t1Typ)::sol else sol
+        if typeIsConst t1Typ then [(v2, t1Typ)] else []
       )
-      | _ -> sol
+      | _ -> []
     )
   )
   | PAIR (e1, e2) -> (solve e1 sol) @ (solve e2 sol)
@@ -224,20 +268,20 @@ let rec relocateE equ sol =
       | TPair(t11, t12) ->(
         match typ2 with
         | TPair(t21, t22) -> PAIR(EQUAL(t11, t21),EQUAL(t12, t22))
-        | TVar _ -> EQUAL(relocateT t1 sol, relocateT t2 sol)
-        | _ -> raise(M.TypeError "asdf") 
+        | TVar _ -> EQUAL(relocateT typ1 sol, typ2)
+        | _ -> raise(M.TypeError "asdf2") 
       )
       | TLoc t ->(
         match typ2 with
         | TLoc(t') -> EQUAL(t, t')
-        | TVar _ -> EQUAL(relocateT t1 sol, relocateT t2 sol)
-        | _ -> raise(M.TypeError "asdf")
+        | TVar _ -> EQUAL(relocateT typ1 sol, typ2)
+        | _ -> raise(M.TypeError "asdf3")
       )
       | TFun(t11, t12) ->(
         match typ2 with
         | TFun(t21, t22) -> PAIR(EQUAL(t11, t21),EQUAL(t12, t22))
-        | TVar _ -> EQUAL(relocateT t1 sol, relocateT t2 sol)
-        | _ -> raise(M.TypeError "asdf")
+        | TVar _ -> EQUAL(relocateT typ1 sol, typ2)
+        | _ -> raise(M.TypeError "asdf4")
       )
       | _ ->EQUAL(relocateT t1 sol, relocateT t2 sol)
     )
@@ -267,12 +311,11 @@ let rec print_sol sol =
 let rec refine sol =
   match sol with
   | (var, typ)::tail ->
-    let (vars, typs) = List.split sol in
-    if List.mem var vars then(
-      let (var', typ') = List.find (fun a -> fst a == var) sol in
-      if typ == typ' then refine tail else raise(M.TypeError"asdf")
-    )
-    else (var, typ) :: (refine tail)
+    let (vars, typs) = List.split tail in
+    if List.mem var vars then
+      let (var', typ') = List.find (fun a -> fst a == var) tail in
+      if (identicalT typ typ') then refine tail else raise(M.TypeError"asdf5")
+     else ((var, typ) :: (refine tail))
   | [] -> []
 
 
@@ -281,7 +324,7 @@ let rec identicalE equ1 equ2 =
   | EQUAL(t1, t2) ->
   (
     match equ2 with
-    | EQUAL(t1', t2') -> (t1' == t1 && t2' == t2)
+    | EQUAL(t1', t2') -> (identicalT t1 t1') && (identicalT t2' t2)
     | PAIR _ -> false
   )
   | PAIR(e1, e2) ->
@@ -291,44 +334,32 @@ let rec identicalE equ1 equ2 =
     | PAIR(e1', e2') -> (identicalE e1 e1') && (identicalE e2 e2')
   )
 
+
+
 let check : M.exp -> M.types = fun exp ->
   let empGam = fun l -> TVar("#unbounded") in
   let tvar = TVar("#result") in
   let equ = struct_equation empGam exp tvar in
   let sol = [] in
 
+
   let rec eval equ sol =(
-    let sol' = solve equ sol in
+    let sol' = sol @ solve equ sol in
     let equ' = relocateE equ sol' in
     let sol'' = refine sol' in
-    let _ = print_sol sol' in
-    let _ = print_endline("=======") in
-    if(not(identicalE equ equ')) then eval equ' sol' else sol) in
+    if(List.length sol < List.length sol'' || not(identicalE equ equ')) then eval equ' sol' else sol) in
 
   let answer = eval equ sol in
 
-  let rec print_list = (function 
-    [] -> ()
-    | e::l -> print_string e ; print_string " " ; print_list l) in
-  
-
-  let print_tvar tvar =
-    match tvar with
-    | TInt -> print_string("Int")
-    | TBool -> print_string("Bool")
-    | TString -> print_string("String")
-    | _ -> print_string("Ext") in
-    
-  let rec print_var = (function 
-    [] -> ()
-    | e::l -> (print_tvar e) ; print_string " " ; print_var l) in
-
-
   let ans = get_typ tvar answer in
 
-
+  let rec typ2mtyp ans =
   match ans with
   | TInt -> M.TyInt
   | TBool -> M.TyBool
   | TString -> M.TyString
-  | _ -> M.TyBool
+  | TPair(t1, t2) -> M.TyPair(typ2mtyp t1, typ2mtyp t2)
+  | TLoc(t) -> M.TyLoc(typ2mtyp t)
+  | TFun(t1, t2) -> M.TyArrow(typ2mtyp t1, typ2mtyp t2) in
+
+  typ2mtyp ans
