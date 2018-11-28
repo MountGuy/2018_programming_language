@@ -217,7 +217,7 @@ let rec identicalT t1 t2 =
   )
   | TVar v1 ->  (
     match t2 with
-    | TVar v2 -> (v1 == v2)
+    | TVar v2 -> (v1 = v2)
     | _ -> false
   )
 
@@ -268,25 +268,43 @@ let rec relocateE equ sol psol =
       | TPair(t11, t12) ->(
         match typ2 with
         | TPair(t21, t22) -> (PAIR(EQUAL(t11, t21),EQUAL(t12, t22)), psol)
-        | TVar _ -> (EQUAL(relocateT typ1 sol, typ2), psol)
+        | TVar v ->
+          if identicalT (psol v) (TVar("#unbounded"))
+          then (EQUAL(relocateT typ1 sol, typ2), psol @+ (v, relocateT typ1 sol))
+          else (EQUAL(relocateT typ1 sol, psol v), psol)        
         | _ -> raise(M.TypeError "asdf2") 
       )
       | TLoc t ->(
         match typ2 with
         | TLoc(t') -> (EQUAL(t, t'), psol)
-        | TVar _ -> (EQUAL(relocateT typ1 sol, typ2), psol)
+        | TVar v ->
+          if identicalT (psol v) (TVar("#unbounded"))
+          then (EQUAL(relocateT typ1 sol, typ2), psol @+ (v, relocateT typ1 sol))
+          else (EQUAL(relocateT typ1 sol, psol v), psol) 
         | _ -> raise(M.TypeError "asdf3")
       )
       | TFun(t11, t12) ->(
         match typ2 with
         | TFun(t21, t22) -> (PAIR(EQUAL(t11, t21),EQUAL(t12, t22)), psol)
-        | TVar _ -> (EQUAL(relocateT typ1 sol, typ2), psol)
+        | TVar v ->
+          if identicalT (psol v) (TVar("#unbounded"))
+          then (EQUAL(relocateT typ1 sol, typ2), psol @+ (v, relocateT typ1 sol))
+          else (EQUAL(relocateT typ1 sol, psol v), psol) 
         | _ -> raise(M.TypeError "asdf4")
       )
+      | TVar v ->
+        if identicalT (psol v) (TVar("#unbounded"))
+        then (EQUAL(typ1, relocateT typ2 sol), psol @+ (v, relocateT typ2 sol))
+        else (EQUAL(relocateT typ2 sol, psol v), psol)
+
       | _ -> (EQUAL(relocateT t1 sol, relocateT t2 sol), psol)
     )
-  | PAIR(e1, e2) -> (PAIR(fst(relocateE e1 sol psol), fst(relocateE e2 sol psol)), psol)
-  
+  | PAIR(e1, e2) -> 
+  let (eq1, ps1) = relocateE e1 sol psol in
+  let (eq2, ps2) = relocateE e2 sol ps1 in
+  (*(PAIR(fst(relocateE e1 sol psol), fst(relocateE e2 sol psol)), psol)
+  *)
+  (PAIR(eq1, eq2), ps2)
 let rec print_equ equ =
   match equ with
   | EQUAL(t1, t2) -> print_endline(get_var t1 ^ "=" ^ get_var t2)
@@ -348,8 +366,6 @@ let check : M.exp -> M.types = fun exp ->
     let psol = fun l -> TVar("#unbounded") in
     let (equ',_) = relocateE equ sol' psol in
     let sol'' = refine sol' in
-    let _ = print_equ equ' in
-    let _ = print_endline("=====") in
     if(List.length sol < List.length sol'' || not(identicalE equ equ')) then eval equ' sol' else sol) in
 
   let answer = eval equ sol in
@@ -363,6 +379,7 @@ let check : M.exp -> M.types = fun exp ->
   | TString -> M.TyString
   | TPair(t1, t2) -> M.TyPair(typ2mtyp t1, typ2mtyp t2)
   | TLoc(t) -> M.TyLoc(typ2mtyp t)
-  | TFun(t1, t2) -> M.TyArrow(typ2mtyp t1, typ2mtyp t2) in
+  | TFun(t1, t2) -> M.TyArrow(typ2mtyp t1, typ2mtyp t2)
+  | TVar _ -> let _ = print_string(get_var ans) in raise(M.TypeError"asdf") in
 
   typ2mtyp ans
