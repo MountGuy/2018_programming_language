@@ -11,15 +11,15 @@ type typ =
   | TInt
   | TBool
   | TString
-  | TPair of typ * typ
-  | TLoc of typ
-  | TFun of typ * typ
-  | TVar of var
+  | TPair  typ * typ
+  | TLoc  typ
+  | TFun  typ * typ
+  | TVar  var
   (* Modify, or add more if needed *)
 
 type typ_scheme =
-  | SimpleTyp of typ 
-  | GenTyp of (var list * typ)
+  | SimpleTyp  typ 
+  | GenTyp  (var list * typ)
 
 type typ_env = (M.id * typ_scheme) list
 
@@ -34,7 +34,7 @@ let count = ref 0
 
 let new_var () = 
   let _ = count := !count +1 in
-  "x_" ^ (string_of_int !count)
+  "x_" ^ (string__int !count)
 
 (* Definitions related to free type variable *)
 
@@ -45,26 +45,26 @@ let union_ftv ftv_1 ftv_2 =
 let sub_ftv ftv_1 ftv_2 =
   List.filter (fun v -> not (List.mem v ftv_2)) ftv_1
 
-let rec ftv_of_typ : typ -> var list = function
+let rec ftv__typ : typ -> var list = function
   | TInt | TBool | TString -> []
-  | TPair (t1, t2) -> union_ftv (ftv_of_typ t1) (ftv_of_typ t2)
-  | TLoc t -> ftv_of_typ t
-  | TFun (t1, t2) ->  union_ftv (ftv_of_typ t1) (ftv_of_typ t2)
+  | TPair (t1, t2) -> union_ftv (ftv__typ t1) (ftv__typ t2)
+  | TLoc t -> ftv__typ t
+  | TFun (t1, t2) ->  union_ftv (ftv__typ t1) (ftv__typ t2)
   | TVar v -> [v]
 
-let ftv_of_scheme : typ_scheme -> var list = function
-  | SimpleTyp t -> ftv_of_typ t
-  | GenTyp (alphas, t) -> sub_ftv (ftv_of_typ t) alphas 
+let ftv__scheme : typ_scheme -> var list = function
+  | SimpleTyp t -> ftv__typ t
+  | GenTyp (alphas, t) -> sub_ftv (ftv__typ t) alphas 
 
-let ftv_of_env : typ_env -> var list = fun tyenv ->
+let ftv__env : typ_env -> var list = fun tyenv ->
   List.fold_left 
-    (fun acc_ftv (id, tyscm) -> union_ftv acc_ftv (ftv_of_scheme tyscm))
+    (fun acc_ftv (id, tyscm) -> union_ftv acc_ftv (ftv__scheme tyscm))
     [] tyenv 
 
 (* Generalize given type into a type scheme *)
 let generalize : typ_env -> typ -> typ_scheme = fun tyenv t ->
-  let env_ftv = ftv_of_env tyenv in
-  let typ_ftv = ftv_of_typ t in
+  let env_ftv = ftv__env tyenv in
+  let typ_ftv = ftv__typ t in
   let ftv = sub_ftv typ_ftv env_ftv in
   if List.length ftv = 0 then
     SimpleTyp t
@@ -105,7 +105,88 @@ let subst_scheme : subst -> typ_scheme -> typ_scheme = fun subs tyscm ->
 let subst_env : subst -> typ_env -> typ_env = fun subs tyenv ->
   List.map (fun (x, tyscm) -> (x, subst_scheme subs tyscm)) tyenv
 
-let rec oneline : typ_env * M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
+let rec unify : (typ * typ) -> subst = fun (t1, t2) ->
+  match t1 with
+  | TInt ->
+  (
+    match t2 with
+    | TInt -> empty_subst
+    | TVar x -> make_subst x t1
+    | _ -> raise(M.TypeError"oops")
+  )
+  | TBool ->
+  (
+    match t2 with
+    | TBool -> empty_subst
+    | TVar x -> make_subst x t1
+    | _ -> raise(M.TypeError"oops")
+  )
+  | TString ->
+  (
+    match t2 with
+    | TString -> empty_subst
+    | TVar x -> make_subst x t1
+    | _ -> raise(M.TypeError"oops")
+  )
+  | TPair (t1f, t1s) ->
+  (
+    match t2 with
+    | TPair (t2f, t2s) ->
+      let s = unify t1f t2f in
+      let s' = unify (s t1s) (s t2s) in
+      (@@) s s'
+    | TVar x -> make_subst x t1
+    | _ -> raise(M.TypeError"oops")
+  )
+  | TLoc t1l ->
+  (
+    match t2 with
+    | TLoc t2l -> unify t1l t2l
+    | TVar x -> make_subst x t1
+    | _ -> raise(M.TypeError"oops")
+  )
+  | TFun (t1i, t1o) ->
+  (
+    match t2 with
+    | TPair (t2i, t2o) ->
+      let s = unify t1i t2i in
+      let s' = unify (s t1o) (s t2o) in
+      (@@) s s'
+    | TVar x -> make_subst x t1
+    | _ -> raise(M.TypeError"oops")
+  )
+  | TVar x1 ->
+  (
+    match t2 with
+    | TVar x2 -> raise(M.TypeError"oops")
+    | _ -> make_subst x2 t1
+  )
+
+let rec expansive : M.exp -> bool = fun exp ->
+  match exp with
+  | CONST _ -> false
+  | VAR _ -> false
+  | FN   _ -> false
+  | APP _ -> true
+  | LET (dec, e) ->
+  (
+    match dec with
+    | REC _ -> expansive e
+    | VAL (x, e') -> expansive e || expansive e'
+  )
+  | IF (e1, e2, e3) -> expansive e1 || expansive e2 || expansive e3
+  | BOP (bop, e1, e2) -> expansive e1 || expansive e2
+  | READ -> true
+  | WRITE e -> expansive e
+  | MALLOC e -> true
+  | ASSIGN (e1, e2) -> expansive e1 || expansive e2
+  | BANG e -> expansive e
+  | SEQ (e1, e2) -> expansive e1 || expansive e2
+  | PAIR (e1, e2) -> expansive e1 || expansive e2
+  | FST e -> expansive e
+  | SND e -> expansive e
+
+let rec oneline : typ_env -> M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
   match exp with
   | M.CONST c ->
   (
@@ -115,10 +196,40 @@ let rec oneline : typ_env * M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
     | M.B _ -> (empty_subst, TBool)
   )
   | M.VAR x ->
-    let 
+    let sigma = ref_tenv tyenv x in
+    let s_sig = subst_scheme empty_subst sigma in
+    (
+      match s_sig with
+      | SimpleTyp t -> (empty_subst, t)
+      | GenTyp (_, t) -> (empty_subst, t)
+    )
   | M.FN (x, e) ->
+    let beta = (TVar new_var())in
+    let (s1, t1) = online ((x, (SimpleTyp beta)) :: tyenv) e in
+    (s1, (TFun s1 beta, t1))
   | M.APP (e1, e2) ->
-  | M.LET (dec, e) ->
+  (*
+    let (s1, t1) = online tyenv e1 in
+    let s1gam = subst_env s1 tyenv in
+    let (s2, t2) = online ((x, generalize s1gam t1) :: s1gam) e2 in
+    (((@@) s1 s2), t2)*)
+    let (s1, t1) = online tyenv e1 in
+    let s1gam = subst_env s1 tyenv in
+    let (s2, t2) = online s1gam e2 in
+    let beta = (TVar new_var())in
+    let s3 = unify (s2 t1, (TFun t2, beta)) in
+    let s1s2 = (@@) s1 s2 in
+    ((@@) s3 s1s2, s3 beta)
+  | M.LET (dec, e2) ->
+  (
+    match dec with
+    | M.REC (f, x, e1) ->
+    | M.VAL (x, e1) ->
+      let (s1, t1) = online tyenv e1 in
+      let s1gam = subst_env s1 tyenv in
+      let (s2, t2) = online ((x, generalize s1gam t1) :: s1gam) e2 in
+      (((@@) s1 s2), t2)
+  )
   | M.IF (e1, e2, e3) ->
   | M.BOP (op, e1, e2) ->
   | M.READ ->
