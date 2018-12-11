@@ -23,6 +23,13 @@ type typ_scheme =
 
 type typ_env = (M.id * typ_scheme) list
 
+let rec ref_tenv typ_env x =
+  match typ_env with
+  | (x1, t) :: tail ->
+    if x = x1 then t else ref_tenv tail x
+  | [] -> raise(TypeError "???")
+
+
 let count = ref 0 
 
 let new_var () = 
@@ -98,6 +105,31 @@ let subst_scheme : subst -> typ_scheme -> typ_scheme = fun subs tyscm ->
 let subst_env : subst -> typ_env -> typ_env = fun subs tyenv ->
   List.map (fun (x, tyscm) -> (x, subst_scheme subs tyscm)) tyenv
 
+let rec oneline : typ_env * M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
+  match exp with
+  | M.CONST c ->
+  (
+    match c with
+    | M.S _ -> (empty_subst, TString)
+    | M.N _ -> (empty_subst, TInt)
+    | M.B _ -> (empty_subst, TBool)
+  )
+  | M.VAR x ->
+    let 
+  | M.FN (x, e) ->
+  | M.APP (e1, e2) ->
+  | M.LET (dec, e) ->
+  | M.IF (e1, e2, e3) ->
+  | M.BOP (op, e1, e2) ->
+  | M.READ ->
+  | M.WRITE e ->
+  | M.MALLOC e ->
+  | M.ASSIGN (e1, e2) ->
+  | M.BANG e ->
+  | M.SEQ (e1, e2) ->
+  | M.PAIR (e1, e2) ->
+  | M.FST e ->
+  | M.SND e ->
 
 (* TODO : Implement this function *)
 let check : M.exp -> M.typ =
