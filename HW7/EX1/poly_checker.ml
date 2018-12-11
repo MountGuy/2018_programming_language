@@ -155,12 +155,12 @@ let rec unify : (typ * typ) -> subst = fun (t1, t2) ->
     | TVar x -> make_subst x t1
     | _ -> raise(M.TypeError"oops")
   )
-  | TVar x1 ->
-  (
+  | TVar x1 -> make_subst x1 t2
+  (*
     match t2 with
     | TVar x2 -> raise(M.TypeError"oops")
-    | _ -> make_subst x2 t1
-  )
+    | _ -> make_subst x1 t2
+  *)
 
 let rec expansive : M.exp -> bool = fun exp ->
   match exp with
@@ -208,11 +208,6 @@ let rec oneline : typ_env -> M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
     let (s1, t1) = online ((x, (SimpleTyp beta)) :: tyenv) e in
     (s1, (TFun s1 beta, t1))
   | M.APP (e1, e2) ->
-  (*
-    let (s1, t1) = online tyenv e1 in
-    let s1gam = subst_env s1 tyenv in
-    let (s2, t2) = online ((x, generalize s1gam t1) :: s1gam) e2 in
-    (((@@) s1 s2), t2)*)
     let (s1, t1) = online tyenv e1 in
     let s1gam = subst_env s1 tyenv in
     let (s2, t2) = online s1gam e2 in
@@ -224,6 +219,10 @@ let rec oneline : typ_env -> M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
   (
     match dec with
     | M.REC (f, x, e1) ->
+      let beta = (TVar new_var())in
+      let (s1, t1) = online ((f, beta) :: tyenv) M.FN(x, e1) in
+      let s2 = unify (s1 beta, t1) in
+      ((@@) s2 s1, s2 t1)
     | M.VAL (x, e1) ->
       let (s1, t1) = online tyenv e1 in
       let s1gam = subst_env s1 tyenv in
@@ -231,11 +230,64 @@ let rec oneline : typ_env -> M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
       (((@@) s1 s2), t2)
   )
   | M.IF (e1, e2, e3) ->
+    let (s1, t1) = online tyenv e1 in
+    let s1' = unify (t1, TBool) in
+    let s1gam = subst_env ((@@) s1 s1') tyenv in
+
+    let (s2, t2) = online s1gam e2 in
+    let s2gam = subst_env s2 s1gam in
+
+    let (s3, t3) = online s2gam e3 in
+    let s4 = unify (s3 t2, t3) in
+
+    let s1s2 = (@@) s1 s2 in
+    let s3s4 = (@@) s3 s4 in
+    ((@@) s1s2 s3s4 , s4 t3)
   | M.BOP (op, e1, e2) ->
-  | M.READ ->
-  | M.WRITE e ->
+  (
+    match op with
+    | ADD
+    | SUB ->
+      let (s1, t1) = online tyenv e1 in
+      let s1' = unify (t1, TInt) in
+      let s1gam = subst_env ((@@) s1 s1') tyenv in
+
+      let (s2, t2) = online s1gam e2 in
+      let s2' = unify (t2, TInt) in
+      let s2gam = subst_env ((@@) s2 s2') in
+
+      ((@@) ((@@) s1 s1') ((@@) s2 s2'), TInt)
+    | EQ ->
+      let (s1, t1) = online tyenv e1 in
+      let s1gam = subst_env s1 tyenv in
+
+      let (s2, t2) = online s1gam e2 in
+      let s2' = unify (t1, t2) in
+
+      (((@@) ((@@) s1 s2) s2'), t1)
+    | AND
+    | OR ->
+      let (s1, t1) = online tyenv e1 in
+      let s1' = unify (t1, TBool) in
+      let s1gam = subst_env ((@@) s1 s1') tyenv in
+
+      let (s2, t2) = online s1gam e2 in
+      let s2' = unify (t2, TBool) in
+      let s2gam = subst_env ((@@) s2 s2') in
+
+      ((@@) ((@@) s1 s1') ((@@) s2 s2'), TBool)
+  )
+  | M.READ -> (empty_subst, TInt)
+  | M.WRITE e -> online tyenv e
   | M.MALLOC e ->
+    let (s1, t1) = online tyenv e in
+    let beta = (TVar new_var())in
+    let s1' = unify(TLoc(t1), beta) in
+    ((@@) s1' s1, s1' beta)
   | M.ASSIGN (e1, e2) ->
+    let (s1, t1) = online tyenv e1 in
+    let s1gam = subst_env s1 tyenv in
+    let (s2, t2) = online tyenv e2 in
   | M.BANG e ->
   | M.SEQ (e1, e2) ->
   | M.PAIR (e1, e2) ->
