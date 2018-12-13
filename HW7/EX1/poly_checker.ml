@@ -11,15 +11,15 @@ type typ =
   | TInt
   | TBool
   | TString
-  | TPair  typ * typ
-  | TLoc  typ
-  | TFun  typ * typ
-  | TVar  var
+  | TPair of typ * typ
+  | TLoc of typ
+  | TFun of typ * typ
+  | TVar of var
   (* Modify, or add more if needed *)
 
 type typ_scheme =
-  | SimpleTyp  typ 
-  | GenTyp  (var list * typ)
+  | SimpleTyp of typ 
+  | GenTyp of (var list * typ)
 
 type typ_env = (M.id * typ_scheme) list
 
@@ -27,14 +27,14 @@ let rec ref_tenv typ_env x =
   match typ_env with
   | (x1, t) :: tail ->
     if x = x1 then t else ref_tenv tail x
-  | [] -> raise(TypeError "???")
+  | [] -> let _ = print_string("hugh??") in raise(M.TypeError "???")
 
 
 let count = ref 0 
 
 let new_var () = 
   let _ = count := !count +1 in
-  "x_" ^ (string__int !count)
+  "x_" ^ (string_of_int !count)
 
 (* Definitions related to free type variable *)
 
@@ -44,27 +44,23 @@ let union_ftv ftv_1 ftv_2 =
   
 let sub_ftv ftv_1 ftv_2 =
   List.filter (fun v -> not (List.mem v ftv_2)) ftv_1
-
-let rec ftv__typ : typ -> var list = function
+let rec ftv_of_typ : typ -> var list = function
   | TInt | TBool | TString -> []
-  | TPair (t1, t2) -> union_ftv (ftv__typ t1) (ftv__typ t2)
-  | TLoc t -> ftv__typ t
-  | TFun (t1, t2) ->  union_ftv (ftv__typ t1) (ftv__typ t2)
+  | TPair (t1, t2) -> union_ftv (ftv_of_typ t1) (ftv_of_typ t2)
+  | TLoc t -> ftv_of_typ t
+  | TFun (t1, t2) ->  union_ftv (ftv_of_typ t1) (ftv_of_typ t2)
   | TVar v -> [v]
-
-let ftv__scheme : typ_scheme -> var list = function
-  | SimpleTyp t -> ftv__typ t
-  | GenTyp (alphas, t) -> sub_ftv (ftv__typ t) alphas 
-
-let ftv__env : typ_env -> var list = fun tyenv ->
+let ftv_of_scheme : typ_scheme -> var list = function
+  | SimpleTyp t -> ftv_of_typ t
+  | GenTyp (alphas, t) -> sub_ftv (ftv_of_typ t) alphas 
+let ftv_of_env : typ_env -> var list = fun tyenv ->
   List.fold_left 
-    (fun acc_ftv (id, tyscm) -> union_ftv acc_ftv (ftv__scheme tyscm))
+    (fun acc_ftv (id, tyscm) -> union_ftv acc_ftv (ftv_of_scheme tyscm))
     [] tyenv 
-
 (* Generalize given type into a type scheme *)
 let generalize : typ_env -> typ -> typ_scheme = fun tyenv t ->
-  let env_ftv = ftv__env tyenv in
-  let typ_ftv = ftv__typ t in
+  let env_ftv = ftv_of_env tyenv in
+  let typ_ftv = ftv_of_typ t in
   let ftv = sub_ftv typ_ftv env_ftv in
   if List.length ftv = 0 then
     SimpleTyp t
@@ -132,8 +128,8 @@ let rec unify : (typ * typ) -> subst = fun (t1, t2) ->
   (
     match t2 with
     | TPair (t2f, t2s) ->
-      let s = unify t1f t2f in
-      let s' = unify (s t1s) (s t2s) in
+      let s = unify (t1f, t2f) in
+      let s' = unify ((s t1s), (s t2s)) in
       (@@) s s'
     | TVar x -> make_subst x t1
     | _ -> raise(M.TypeError"oops")
@@ -141,16 +137,16 @@ let rec unify : (typ * typ) -> subst = fun (t1, t2) ->
   | TLoc t1l ->
   (
     match t2 with
-    | TLoc t2l -> unify t1l t2l
+    | TLoc t2l -> unify (t1l, t2l)
     | TVar x -> make_subst x t1
     | _ -> raise(M.TypeError"oops")
   )
   | TFun (t1i, t1o) ->
   (
     match t2 with
-    | TPair (t2i, t2o) ->
-      let s = unify t1i t2i in
-      let s' = unify (s t1o) (s t2o) in
+    | TFun (t2i, t2o) ->
+      let s = unify (t1i, t2i) in
+      let s' = unify ((s t1o), (s t2o)) in
       (@@) s s'
     | TVar x -> make_subst x t1
     | _ -> raise(M.TypeError"oops")
@@ -186,7 +182,7 @@ let rec expansive : M.exp -> bool = fun exp ->
   | FST e -> expansive e
   | SND e -> expansive e
 
-let rec oneline : typ_env -> M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
+let rec online : typ_env -> M.exp -> ((typ -> typ) * typ) = fun tyenv exp ->
   match exp with
   | M.CONST c ->
   (
@@ -204,23 +200,23 @@ let rec oneline : typ_env -> M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
       | GenTyp (_, t) -> (empty_subst, t)
     )
   | M.FN (x, e) ->
-    let beta = (TVar new_var())in
+    let beta = TVar(new_var())in
     let (s1, t1) = online ((x, (SimpleTyp beta)) :: tyenv) e in
-    (s1, (TFun s1 beta, t1))
+    (s1, TFun(s1 beta, t1))
   | M.APP (e1, e2) ->
     let (s1, t1) = online tyenv e1 in
     let s1gam = subst_env s1 tyenv in
     let (s2, t2) = online s1gam e2 in
-    let beta = (TVar new_var())in
-    let s3 = unify (s2 t1, (TFun t2, beta)) in
+    let beta = TVar(new_var())in
+    let s3 = unify (s2 t1, TFun(t2, beta)) in
     let s1s2 = (@@) s1 s2 in
     ((@@) s3 s1s2, s3 beta)
   | M.LET (dec, e2) ->
   (
     match dec with
     | M.REC (f, x, e1) ->
-      let beta = (TVar new_var())in
-      let (s1, t1) = online ((f, beta) :: tyenv) M.FN(x, e1) in
+      let beta = TVar(new_var())in
+      let (s1, t1) = online ((f, SimpleTyp beta) :: tyenv) (M.FN(x, e1)) in
       let s2 = unify (s1 beta, t1) in
       ((@@) s2 s1, s2 t1)
     | M.VAL (x, e1) ->
@@ -254,7 +250,6 @@ let rec oneline : typ_env -> M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
 
       let (s2, t2) = online s1gam e2 in
       let s2' = unify (t2, TInt) in
-      let s2gam = subst_env ((@@) s2 s2') in
 
       ((@@) ((@@) s1 s1') ((@@) s2 s2'), TInt)
     | EQ ->
@@ -273,7 +268,6 @@ let rec oneline : typ_env -> M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
 
       let (s2, t2) = online s1gam e2 in
       let s2' = unify (t2, TBool) in
-      let s2gam = subst_env ((@@) s2 s2') in
 
       ((@@) ((@@) s1 s1') ((@@) s2 s2'), TBool)
   )
@@ -281,19 +275,60 @@ let rec oneline : typ_env -> M.exp -> ((typ -> typ) * typ) = fun (tyenv, exp) ->
   | M.WRITE e -> online tyenv e
   | M.MALLOC e ->
     let (s1, t1) = online tyenv e in
-    let beta = (TVar new_var())in
+    let beta = TVar(new_var())in
     let s1' = unify(TLoc(t1), beta) in
     ((@@) s1' s1, s1' beta)
   | M.ASSIGN (e1, e2) ->
     let (s1, t1) = online tyenv e1 in
     let s1gam = subst_env s1 tyenv in
-    let (s2, t2) = online tyenv e2 in
+    let (s2, t2) = online s1gam e2 in
+    let s2' = unify(TLoc(t2), s2 t1) in
+
+    ((@@) s1 s2', t2)
+
   | M.BANG e ->
+    let (s1, t1) = online tyenv e in
+    let beta = TVar(new_var()) in
+    let s1' = unify(t1, TLoc(beta)) in
+    ((@@) s1 s1', beta)
   | M.SEQ (e1, e2) ->
+    let (s1, t1) = online tyenv e1 in
+    let s1gam = subst_env s1 tyenv in
+    let (s2, t2) = online s1gam e2 in
+
+    ((@@) s1 s2, t2)
   | M.PAIR (e1, e2) ->
+    let (s1, t1) = online tyenv e1 in
+    let s1gam = subst_env s1 tyenv in
+    let (s2, t2) = online s1gam e2 in
+
+    ((@@) s1 s2, TPair(s2 t1, t2))
   | M.FST e ->
+    let (s1, t1) = online tyenv e in
+    let beta1 = TVar(new_var()) in
+    let beta2 = TVar(new_var()) in
+    let s1' = unify(t1, TPair(beta1, beta2)) in
+
+    ((@@)s1 s1', beta1)
   | M.SND e ->
+    let (s1, t1) = online tyenv e in
+    let beta1 = TVar(new_var()) in
+    let beta2 = TVar(new_var()) in
+    let s1' = unify(t1, TPair(beta1, beta2)) in
+
+    ((@@)s1 s1', beta2)
 
 (* TODO : Implement this function *)
-let check : M.exp -> M.typ =
-  raise (M.TypeError "Type Checker Unimplemented")
+let check : M.exp -> M.typ = fun exp ->
+  let (s, t) = online [] exp in
+
+  let rec typ2mtyp ans =
+    match ans with
+    | TInt -> M.TyInt
+    | TBool -> M.TyBool
+    | TString -> M.TyString
+    | TPair(t1, t2) -> M.TyPair(typ2mtyp t1, typ2mtyp t2)
+    | TLoc(t) -> M.TyLoc(typ2mtyp t)
+    |  _ -> raise(M.TypeError"asdf") in
+
+  typ2mtyp (s t)
